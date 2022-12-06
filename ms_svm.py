@@ -16,7 +16,7 @@ class PolynomialKernel(Kernel):
 
     def __call__(self, a, b):
         # (a*b + 1) ** D
-        v = (a @ b + 1) ** self.degree
+        v = (a @ b + 4) ** self.degree
         return v
 
 
@@ -41,12 +41,12 @@ class Svm:
 
         self.ker = kernel
 
-        self.speed = 1e-3
+        self.speed = 1e-6
         self.e_s_n = 100     # early stopping
 
     def __call__(self, x: np.ndarray):
         if len(x.shape) == 1:
-            return sum(a_i*y_i*self.ker(x, x_i) for a_i, x_i, y_i in zip(self.a, self.x_train, self.y_train))
+            return sum(a_i*y_i*self.ker(x, x_i) for a_i, x_i, y_i in zip(self.a, self.x_train, self.y_train)) + self.b
         else:
             return np.array([self(x[i]) for i in range(x.shape[0])])
 
@@ -55,11 +55,20 @@ class Svm:
         assert x.shape[0] == y.shape[0]
 
         N = x.shape[0]
-        C = 10
+
+        if type(self.ker) == PolynomialKernel:
+            C = 100
+            self.speed = 10**(-3-self.ker.degree)
+        elif type(self.ker) == RbfKernel:
+            C = 1e1
+            self.speed = 1e-4
+        else:
+            C = 1e1
+            self.speed = 1e-4
 
         self.x_train = x
         self.y_train = y
-        self.a = np.ones(N)
+        self.a = np.ones(N)/2
 
         n = 0
         prev_L = np.inf
@@ -77,7 +86,7 @@ class Svm:
 
             L = d - s + C*r
 
-            if L + 1e7 < prev_L:
+            if L + 1e-9 < prev_L:
                 prev_L = L
                 prev_a = self.a
                 n = 0
@@ -92,7 +101,7 @@ class Svm:
 
             dsda = np.ones_like(self.a)
 
-            drda = np.sign(ri) * np.array([y[i] for i in range(N)])     # should it me minus?
+            drda = np.sign(ri) * np.array([y[i] for i in range(N)])
 
             # final gradient of the loss function
             dLda = ddda - dsda + C*drda
@@ -102,8 +111,8 @@ class Svm:
 
         self.a = prev_a
 
-        # # finally, computing b
-        # self.b = statistics.median(abs(y[i] - sum(self.a[j]*y[j]*self.ker(x[i], x[j]) for j in range(N)))
-        #                            for i in range(N))
+        # finally, computing b
+        self.b = statistics.median(abs(y[i] - sum(self.a[j]*y[j]*self.ker(x[i], x[j]) for j in range(N)))
+                                   for i in range(N))
 
 
