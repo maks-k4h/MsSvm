@@ -16,7 +16,7 @@ class PolynomialKernel(Kernel):
 
     def __call__(self, a, b):
         # (a*b + 1) ** D
-        v = (a @ b + 4) ** self.degree
+        v = (a @ b + 1) ** self.degree
         return v
 
 
@@ -41,12 +41,12 @@ class Svm:
 
         self.ker = kernel
 
-        self.speed = 1e-6
+        self.speed = 1e-4
         self.e_s_n = 100     # early stopping
 
     def __call__(self, x: np.ndarray):
         if len(x.shape) == 1:
-            return sum(a_i*y_i*self.ker(x, x_i) for a_i, x_i, y_i in zip(self.a, self.x_train, self.y_train)) + self.b
+            return np.sign(sum(a_i*y_i*self.ker(x, x_i) for a_i, x_i, y_i in zip(self.a, self.x_train, self.y_train)) - self.b)
         else:
             return np.array([self(x[i]) for i in range(x.shape[0])])
 
@@ -56,19 +56,11 @@ class Svm:
 
         N = x.shape[0]
 
-        if type(self.ker) == PolynomialKernel:
-            C = 100
-            self.speed = 10**(-3-self.ker.degree)
-        elif type(self.ker) == RbfKernel:
-            C = 1e1
-            self.speed = 1e-4
-        else:
-            C = 1e1
-            self.speed = 1e-4
+        C = 10
 
         self.x_train = x
         self.y_train = y
-        self.a = np.ones(N)/2
+        self.a = np.ones(N)
 
         n = 0
         prev_L = np.inf
